@@ -3,6 +3,10 @@ import os
 from invoke import Responder
 from fabric import Connection, Config, task
 
+"""
+Author: Mohan
+email: reddimohana@gmail.com
+"""
 
 @task
 def status(ctx, service):
@@ -41,19 +45,40 @@ def check_port(ctx, port):
     port_results = sudouser(ctx, 'lsof -i:' + port)
     print(port_results)
 
+
 def sudouser(ctx, command):
     c = connect()
     password = sudopass()
     results = c.sudo(command, pty=True, watchers=[password])
     return results
 
+
 @task
-def deploy(cmd):
+def deploy(ctx, branch):
     """
     Auto deploy the application into server and restarts the service and nginx server
     """
+    # Deploy branch
+    # Pull the latest code from branch
+    # Install the requirements If any ex: pip install -r requirements.txt --ignore-installed
+    #
+    # rollback code If server is not running with latest code and If any errors in the code
     pass
 
+@task
+def init(ctx):
+    """
+    Prepare the Server to install dependencies and required system level libraries (Optional)
+    """
+    # Update the Ubuntu server with sudouser
+    # install required Ubuntu packages usinf sudo apt install package ex: nginx, gunicorn...
+    #
+    pass
+
+
+def rollback():
+    print('Rollback')
+    pass
 
 @task
 def disk_used(cnt):
