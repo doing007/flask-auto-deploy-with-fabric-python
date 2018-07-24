@@ -14,15 +14,14 @@ def status(ctx, service):
     results = con.sudo('sudo systemctl --no-pager status ' + service, pty=True, watchers=[password])
     return results
 
-
 @task
-def restart(ctx, service):
+def service(ctx, service, control):
     """
-    Restart services. ex: nginx, discovery..
+    Restart services. ex: fab service nginx [status|restart|start|stop]
     """
     con = connect()
     password = sudopass()
-    results = con.sudo('sudo systemctl restart ' + service, pty=True, watchers=[password])
+    results = sudouser(ctx, 'sudo systemctl --no-pager ' + control + ' ' + service)
     status(ctx, service)
 
 
@@ -35,12 +34,32 @@ def sudopass():
 
 
 @task
+def check_port(ctx, port):
+    """
+    To check If port is being used or not
+    """
+    port_results = sudouser(ctx, 'lsof -i:' + port)
+    print(port_results)
+
+def sudouser(ctx, command):
+    c = connect()
+    password = sudopass()
+    results = c.sudo(command, pty=True, watchers=[password])
+    return results
+
+@task
 def deploy(cmd):
+    """
+    Auto deploy the application into server and restarts the service and nginx server
+    """
     pass
 
 
 @task
 def disk_used(cnt):
+    """
+    Check the / disk space usage
+    """
     c = connect()
     result = c.run('uname -s', hide=True)
     uname = result.stdout.strip()
@@ -53,6 +72,8 @@ def disk_used(cnt):
 
 
 def connect():
-    os_server = 'username@xx.xx.xx.xx'
+    # Getting my server info from my system env (I have already exported so I can access it)
+    server_ip = os.environ['MY_SERVER']
+    os_server = 'mohan@' + server_ip
     connection = Connection(host=os_server)
     return connection
