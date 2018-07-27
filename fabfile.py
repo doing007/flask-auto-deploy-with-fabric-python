@@ -3,6 +3,7 @@ import os
 from invoke import Responder
 from fabric import Connection, Config, task
 
+import datetime
 """
 Author: Mohan
 email: reddimohana@gmail.com
@@ -21,7 +22,7 @@ def status(ctx, service):
 @task
 def service(ctx, service, control):
     """
-    Restart services. ex: fab service nginx [status|restart|start|stop]
+    You can manage your services. ex: fab service nginx status|restart|start|stop
     """
     con = connect()
     password = sudopass()
@@ -43,7 +44,7 @@ def check_port(ctx, port):
     To check If port is being used or not
     """
     port_results = sudouser(ctx, 'lsof -i:' + port)
-    print(port_results)
+    # print(port_results)
 
 
 def sudouser(ctx, command):
@@ -56,20 +57,45 @@ def sudouser(ctx, command):
 @task
 def deploy(ctx, branch):
     """
-    Auto deploy the application into server and restarts the service and nginx server
+    Auto deploy the application into server and restarts the service and nginx server. ex: fab deploy branch_name
     """
+
+    log(ctx, "Started Deploying ==> [" + branch + "] branch")
+    _get_branch_info()
+    #
+    _checkout_branch(branch)
     # Deploy branch
     # Pull the latest code from branch
     # Install the requirements If any ex: pip install -r requirements.txt --ignore-installed
     #
     # rollback code If server is not running with latest code and If any errors in the code
+    #
     pass
+
+
+def _get_branch_info():
+    pass
+    # Get the project name and creating everything with the name
+
+def _checkout_branch(branch):
+    print(branch)
+    # Checkout Branch
+    # do git pull origin branch
+
+
+# @task
+def ssh(ctx):
+    pass
+    # ssh-keygen ~/.ssh/
+    # ssh-copy-id -i ~/.ssh/mykey user@host
+
 
 @task
 def init(ctx):
     """
     Prepare the Server to install dependencies and required system level libraries (Optional)
     """
+    print("First function")
     # Update the Ubuntu server with sudouser
     # install required Ubuntu packages usinf sudo apt install package ex: nginx, gunicorn...
     #
@@ -95,10 +121,19 @@ def disk_used(cnt):
     err = "No idea how to get disk space on {}!".format(uname)
     # raise Exit(err)
 
+def log(ctx, msg):
+    date_time = get_datetime()
+    print([date_time], msg)
 
 def connect():
-    # Getting my server info from my system env (I have already exported so I can access it)
+    """
+    Creating tunnel using Fabric Connection
+    Getting my server info from my system env (I have already exported so I can access it now)
+    """
     server_ip = os.environ['MY_SERVER']
     os_server = 'mohan@' + server_ip
     connection = Connection(host=os_server)
     return connection
+
+def get_datetime():
+    return datetime.datetime.now().strftime("%B-%d-%Y %I:%M:%S")
