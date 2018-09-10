@@ -72,9 +72,9 @@ def deploy(ctx, env, branch):
 
     app_name, app_path = get_app_name(e['gitrepo'])
 
-    # git_clone(ctx, env, app_name, app_path, e)
+    git_clone(ctx, env, app_name, app_path, e)
 
-    # env_setup(c, app_name, app_path, e)
+    env_setup(con, app_name, app_path, e)
 
     gunicorn_setup(ctx, con, app_name, app_path, e, env)
 
@@ -89,20 +89,30 @@ def git_clone(ctx, env, app_name, app_path, e):
     log.info("Created project dir " + app_path)
 
 def env_setup(c, app_name, app_path, e):
+    conda = "/home/{}/anaconda3/bin/conda".format(e['user'])
+    activate = "/home/{}/anaconda3/bin/activate".format(e['user'])
+    deactivate = "/home/{}/anaconda3/bin/deactivate".format(e['user'])
+
     log.info("Started cloning " + e['gitrepo'] + " to " + app_path)
     c.run("git clone " + e['gitrepo'] + " " + app_path)
-    c.run("conda create -n " + app_name + " python=3.5")
-    c.run("source activate " + app_name)
+
+    log.info(conda + " create -n " + app_name + " python=3.5")
+    c.run(conda + " create -n " + app_name + " python=3.5")
+
+    c.run("source " + activate + " " + app_name)
     c.run("pip install -r requirements.txt --ignore-installed")
-    c.run("source deactivate")
+    c.run("source " + deactivate)
 
 
 def gunicorn_setup(ctx, con, app_name, app_path, e, env):
+    """ Setting up service file
+    """
     # port = check_port(ctx, env, e['port'])
     # if not port:
-        # raise SystemExit(log.error(str(e['port']) + " Port is used, Please try with another port."))
+    #     raise SystemExit(log.error(str(e['port']) + " Port is used, Please try with another port."))
 
-    exec_start = """/home/{}/anaconda3/envs/bin/gunicorn -w 3 --bind unix:{}.sock -m 007 wsgi:app""".format(e['user'], app_name)
+    conda_env = "/home/{}/anaconda3/envs/{}/bin".format(e['user'], app_name)
+    exec_start = """{}/gunicorn -w 3 --bind unix:{}.sock -m 007 wsgi:app""".format(conda_env, app_name)
     print(exec_start)
     conf = """[Unit]
     Description=Gunicorn instance to serve {}, using {}
@@ -116,8 +126,15 @@ def gunicorn_setup(ctx, con, app_name, app_path, e, env):
     ExecStart={}
     [Install]
     WantedBy=multi-user.target
-    """.format(app_name, e['port'], e['user'], app_path, 'env_path', exec_start, )
-    print(conf)
+    """.format(app_name, e['port'], e['user'], app_path, conda_env, exec_start)
+    g_service = 'echo '+ conf +' > /etc/systemd/system/{}.service'.format(app_name)
+    sudorun(ctx, env, g_service)
+
+    service(ctx, env, app_name + '.service', 'start')
+    service(ctx, env, app_name + '.service', 'enable')
+    status = service(ctx, env, app_name + '.service', 'status')
+
+    print(status)
 
 
 def nginx_setup():
@@ -129,6 +146,7 @@ def check_port(ctx, env, port):
     """
     To check If port is being used or not
     """
+    print('Coming')
     port_results = sudorun(ctx, env, 'lsof -i:' + str(port))
     return port_results.return_code
 
