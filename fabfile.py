@@ -68,25 +68,69 @@ def deploy(ctx, env, branch):
     # Check the PORT number, If it being used try the next port number
     # rollback code If server is not running with latest code and If any errors in the code
     # print(logger.__version__)
-    c, e = connect(env)
+    con, e = connect(env)
 
-    print(env)
     app_name, app_path = get_app_name(e['gitrepo'])
+
+    # git_clone(ctx, env, app_name, app_path, e)
+
+    # env_setup(c, app_name, app_path, e)
+
+    gunicorn_setup(ctx, con, app_name, app_path, e, env)
+
+    # nginx_setup(c, app_name, app_path, e)
+
+
+    pass
+
+
+def git_clone(ctx, env, app_name, app_path, e):
     sudorun(ctx, env, 'sudo mkdir ' + app_path + ' && sudo chown -R ' + e['user'] + ':' + e['user'] + ' ' + app_path)
     log.info("Created project dir " + app_path)
 
+def env_setup(c, app_name, app_path, e):
     log.info("Started cloning " + e['gitrepo'] + " to " + app_path)
     c.run("git clone " + e['gitrepo'] + " " + app_path)
-    # sudorun(ctx, env, "git clone " + e['gitrepo'] + ' ./')
+    c.run("conda create -n " + app_name + " python=3.5")
+    c.run("source activate " + app_name)
+    c.run("pip install -r requirements.txt --ignore-installed")
+    c.run("source deactivate")
+
+
+def gunicorn_setup(ctx, con, app_name, app_path, e, env):
+    # port = check_port(ctx, env, e['port'])
+    # if not port:
+        # raise SystemExit(log.error(str(e['port']) + " Port is used, Please try with another port."))
+
+    exec_start = """/home/{}/anaconda3/envs/bin/gunicorn -w 3 --bind unix:{}.sock -m 007 wsgi:app""".format(e['user'], app_name)
+    print(exec_start)
+    conf = """[Unit]
+    Description=Gunicorn instance to serve {}, using {}
+    After=network.target
+
+    [Service]
+    User={}
+    Group=www-data
+    WorkingDirectory={}
+    Environment="PATH={}"
+    ExecStart={}
+    [Install]
+    WantedBy=multi-user.target
+    """.format(app_name, e['port'], e['user'], app_path, 'env_path', exec_start, )
+    print(conf)
+
+
+def nginx_setup():
     pass
+
 
 @task
 def check_port(ctx, env, port):
     """
     To check If port is being used or not
     """
-    port_results = sudorun(ctx, env, 'lsof -i:' + port)
-    print(port_results)
+    port_results = sudorun(ctx, env, 'lsof -i:' + str(port))
+    return port_results.return_code
 
 
 def sudorun(ctx, env, command):

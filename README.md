@@ -5,6 +5,8 @@
 $ python --version
 Python 3.5.5
 ```
+### Used Anaconda to virtual environment tool to separate app from others
+#### Note: I believe that you have already installed anaconda in your server
 #### Commands
 
 ##### Clone the repo
