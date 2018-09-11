@@ -55,6 +55,20 @@ def sudopass(env):
     )
     return sudopass
 
+@task
+def clean(ctx, env):
+    """
+    Remove the old repo code and the anaconda environment. ex: fab clean env
+    """
+    con, e = connect(env)
+    app_name, app_path = get_app_name(e['gitrepo'])
+    conda = "/home/{}/anaconda3/bin/conda".format(e['user'])
+
+    sudorun(ctx, env, 'rm -r ' + app_path)
+
+    con.run(conda + ' env remove -n ' + app_name)
+    log.info(conda + ' env remove -n ' + app_name)
+
 
 @task
 def deploy(ctx, env, branch):
@@ -92,6 +106,7 @@ def env_setup(c, app_name, app_path, e):
     conda = "/home/{}/anaconda3/bin/conda".format(e['user'])
     activate = "/home/{}/anaconda3/bin/activate".format(e['user'])
     deactivate = "/home/{}/anaconda3/bin/deactivate".format(e['user'])
+    pip = "/home/{}/anaconda3/bin/pip".format(e['user'])
 
     log.info("Started cloning " + e['gitrepo'] + " to " + app_path)
     c.run("git clone " + e['gitrepo'] + " " + app_path)
@@ -99,8 +114,10 @@ def env_setup(c, app_name, app_path, e):
     log.info(conda + " create -n " + app_name + " python=3.5")
     c.run(conda + " create -n " + app_name + " python=3.5")
 
-    c.run("source " + activate + " " + app_name)
-    c.run("pip install -r requirements.txt --ignore-installed")
+    c.run("source " + activate + " " + app_name + " && cd " + app_path)
+    log.info("source " + activate + " " + app_name + " && cd " + app_path)
+
+    c.run(pip + " install -r " + app_path + "/requirements.txt --ignore-installed")
     c.run("source " + deactivate)
 
 
