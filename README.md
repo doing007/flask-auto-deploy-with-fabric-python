@@ -9,9 +9,16 @@ Python 3.5.5
 #### Note: I believe that you have already installed anaconda in your server
 #### Commands
 
+#### First *IMPORTANT* thing to do is Generating SSH key and add it to the Github Account
+Here is the [link](https://help.github.com/articles/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent/)
+AND
+Add your ssh key to Authorised Access keys list in the server, so that It wont ask for the password
+
 ##### Clone the repo
 ```sh
 $ git clone https://github.com/<user>/<repo_name>.git
+OR
+$ git clone git@github.com:<USER>/<REPO_NAME>.git
 ```
 ##### Create virtual environment (Install Anaconda before running this command)
 ```sh

@@ -6,8 +6,10 @@ from pprint import pprint
 sys.path.append('/opt/settings')
 import re
 import config
+from fabric.transfer import Transfer
 # import logger as log
 import logger
+import inspect
 log = logger.Logger()
 app_dir = '/opt'
 
@@ -20,11 +22,12 @@ email: reddimohana@gmail.com
 global conf
 
 @task
-def test(ctx):
+def test(ctx, env):
     """
     Test task
     """
     pass
+
 
 
 @task
@@ -42,18 +45,11 @@ def service(ctx, env, service, control):
     """
     Restart services. ex: fab service nginx [status|restart|start|stop]
     """
-    con = connect(env)
-    password = sudopass(env)
+    con, e = connect(env)
+    password = sudopass(e)
     results = sudorun(ctx, env, 'sudo systemctl --no-pager ' + control + ' ' + service)
-    status(ctx, service)
-
-
-def sudopass(env):
-    sudopass = Responder(
-        pattern=r'\[sudo\] password:',
-        response=env['password'] + '\n'
-    )
-    return sudopass
+    # status = status(ctx, service)
+    return results
 
 @task
 def clean(ctx, env):
@@ -69,6 +65,10 @@ def clean(ctx, env):
     con.run(conda + ' env remove -n ' + app_name)
     log.info(conda + ' env remove -n ' + app_name)
 
+@task
+def update(ctx, env, branch):
+    # update the latest code with the specified branch and restart the gunicorn service
+    pass
 
 @task
 def deploy(ctx, env, branch):
@@ -117,6 +117,8 @@ def env_setup(c, app_name, app_path, e):
     c.run("source " + activate + " " + app_name + " && cd " + app_path)
     log.info("source " + activate + " " + app_name + " && cd " + app_path)
 
+    log.info(pip + " install gunicorn && " + pip + " install -r " + app_path + "/requirements.txt --ignore-installed")
+    c.run(pip + " install gunicorn")
     c.run(pip + " install -r " + app_path + "/requirements.txt --ignore-installed")
     c.run("source " + deactivate)
 
@@ -129,8 +131,8 @@ def gunicorn_setup(ctx, con, app_name, app_path, e, env):
     #     raise SystemExit(log.error(str(e['port']) + " Port is used, Please try with another port."))
 
     conda_env = "/home/{}/anaconda3/envs/{}/bin".format(e['user'], app_name)
-    exec_start = """{}/gunicorn -w 3 --bind unix:{}.sock -m 007 wsgi:app""".format(conda_env, app_name)
-    print(exec_start)
+    exec_start = """{}/gunicorn --error-logfile {}/error.log -w 3 --access-logfile {}/access.log --bind unix:{}.sock -m 007 wsgi:app""".format(conda_env, app_path, app_path, app_name)
+
     conf = """[Unit]
     Description=Gunicorn instance to serve {}, using {}
     After=network.target
@@ -141,39 +143,67 @@ def gunicorn_setup(ctx, con, app_name, app_path, e, env):
     WorkingDirectory={}
     Environment="PATH={}"
     ExecStart={}
+
     [Install]
     WantedBy=multi-user.target
     """.format(app_name, e['port'], e['user'], app_path, conda_env, exec_start)
-    g_service = 'echo '+ conf +' > /etc/systemd/system/{}.service'.format(app_name)
-    sudorun(ctx, env, g_service)
 
+    guni_service_name = _gunicorn_service(ctx, con, env, e, app_path, app_name, conf)
     service(ctx, env, app_name + '.service', 'start')
     service(ctx, env, app_name + '.service', 'enable')
+    sudorun(ctx, env, 'systemctl daemon-reload')
     status = service(ctx, env, app_name + '.service', 'status')
 
     print(status)
 
 
+def _gunicorn_service(ctx, con, env, e, app_path, app_name, conf):
+    lines = conf.split('\n')
+    service = os.getcwd() + '/{}.service'.format(app_name)
+    for line in lines:
+        with open(service, 'a+') as file:
+            file.write(line.strip())
+            file.write('\n')
+    gunicorn_service = '/etc/systemd/system/'
+    transfer = Transfer(con)
+    transfer.put(service, remote= '/tmp', preserve_mode=True)
+    sudorun(ctx, env, 'mv /tmp/' + app_name + '.service ' + gunicorn_service)
+    os.remove(service)
+
+
+    # log.error(service)
+
 def nginx_setup():
     pass
 
+@task
+def check_error(ctx):
+    # tail command to see last 20 line
+    pass
 
 @task
 def check_port(ctx, env, port):
     """
     To check If port is being used or not
     """
-    print('Coming')
     port_results = sudorun(ctx, env, 'lsof -i:' + str(port))
     return port_results.return_code
 
 
 def sudorun(ctx, env, command):
-    c, env_conf = connect(env)
+    con, env_conf = connect(env)
     password = sudopass(env_conf)
     log.debug(command)
-    results = c.sudo(command, pty=True, watchers=[password])
+    results = con.sudo(command, pty=True, watchers=[password])
     return results
+
+
+def sudopass(env):
+    sudopass = Responder(
+        pattern=r'\[sudo\] password:',
+        response=env['password'] + '\n'
+    )
+    return sudopass
 
 def serviceList(ctx):
     """
