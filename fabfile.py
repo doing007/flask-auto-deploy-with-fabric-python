@@ -90,7 +90,7 @@ def deploy(ctx, env, branch):
 
     env_setup(con, app_name, app_path, e)
 
-    gunicorn_setup(ctx, con, app_name, app_path, e, env)
+    # gunicorn_setup(ctx, con, app_name, app_path, e, env)
 
     # nginx_setup(c, app_name, app_path, e)
 
@@ -114,7 +114,7 @@ def env_setup(c, app_name, app_path, e):
     log.info(conda + " create -n " + app_name + " python=3.5")
     c.run(conda + " create -n " + app_name + " python=3.5")
 
-    c.run("source " + activate + " " + app_name + " && cd " + app_path)
+    c.run("source " + activate + " " + app_name)
     log.info("source " + activate + " " + app_name + " && cd " + app_path)
 
     log.info(pip + " install gunicorn && " + pip + " install -r " + app_path + "/requirements.txt --ignore-installed")
